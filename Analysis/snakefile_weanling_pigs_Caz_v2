@@ -1,0 +1,99 @@
+#######################################
+####### SHORT-READS MAPPING ###########
+#######################################
+
+import glob
+from snakemake.io import glob_wildcards
+
+##########################
+#### Global Variables ####
+##########################
+
+SAMPLE, RF = glob_wildcards("../resources/Data_Wang_etal_weanling_pigs/{sample}_{rf}.fastq.gz")
+
+#########################
+#### General Outputs ####
+#########################
+
+rule all:
+    input:
+        expand("../results/AlignmentResults_weanling_pigs_Caz/{sample}.stat", sample=SAMPLE),
+        expand("../results/AlignmentResults_weanling_pigs_Caz/{sample}.cover", sample=SAMPLE),
+        expand("../results/AlignmentResults_weanling_pigs_Caz/{sample}.depth", sample=SAMPLE)
+
+##########################
+#### Merge Paired-End ####
+##########################
+
+rule seqtk_mergepe:
+    input:
+        r1 = "../resources/Data_weanling_pigs/{sample}_R1.fastq.gz",
+        r2 = "../resources/Data_weanling_pigs/{sample}_R2.fastq.gz"
+    output:
+        merged = "../resources/Outputs_weanling_pigs_Caz/mergepe/{sample}.fastq.gz"
+    log:
+        "../resources/Logs_weanling_pigs_Caz/mergepe/{sample}.log"
+    params:
+        command = "mergepe",
+        compress_lvl = 9
+    threads:
+        4
+    wrapper:
+        "v4.6.0/bio/seqtk"
+
+#####################
+#### BWA Mapping ####
+#####################
+rule bwa_mapping:
+    input:
+        r1 = "../resources/Data_Wang_etal_weanling_pigs/{sample}_1.fastq.gz",
+        r2 = "../resources/Data_Wang_etal_weanling_pigs/{sample}_2.fastq.gz"
+    output:
+        bam_out = "../results/Aligned_weanling_pigs_Caz/{sample}.bam"
+    params:
+        database = "../resources/Databases/sgi_dbcan_db.fasta"
+    log:
+        "../resources/Logs_weanling_pigs_Caz/bwa/{sample}.log"
+    threads:
+        40
+    conda:
+        "../envs/readmapping_env.yaml"
+    shell:
+        """
+        mkdir -p $(dirname {output.bam_out})
+        
+        # Use pipefail to catch errors in pipe
+        set -o pipefail
+
+        bwa mem {params.database} {input.r1} {input.r2} -t {threads} 2>> {log} | \
+            samtools sort -@ {threads} -o {output.bam_out} 2>> {log}
+        """
+
+
+#############################
+#### Coverage Statistics ####
+#############################
+
+rule coverage:
+    input:
+        bam = rules.bwa_mapping.output.bam_out
+    output:
+        stats_report = "../results/AlignmentResults_weanling_pigs_Caz/{sample}.stat",
+        cover_report = "../results/AlignmentResults_weanling_pigs_Caz/{sample}.cover",
+        depth_report = "../results/AlignmentResults_weanling_pigs_Caz/{sample}.depth"
+    log:
+        "../resources/Logs_weanling_pigs_Caz/Coverage/{sample}.log"
+    threads:
+        20
+    conda:
+        "../envs/readmapping_env.yaml"
+    shell:
+        """
+        mkdir -p $(dirname {output.stats_report})
+
+        samtools index {input.bam}
+        samtools flagstat {input.bam} > {output.stats_report}
+        samtools coverage {input.bam} > {output.cover_report}
+        samtools depth -aa {input.bam} > {output.depth_report}
+        """  
+
