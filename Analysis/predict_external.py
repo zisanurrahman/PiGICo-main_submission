@@ -7,7 +7,7 @@ Apply saved v6/v7 model bundles to an independent external dataset.
 
 Workflow
 --------
-1. Load one or more .joblib model bundles (saved by v6 or v7).
+1. Load one or more .joblib model bundles.
 2. Read the external dataset in the same long-format TSV as training data.
 3. Build the feature matrix using the SAME granularity and feature classes
    as the training run.
@@ -68,7 +68,7 @@ warnings.filterwarnings("ignore")
 
 
 # =============================================================================
-# DATA LOADING  (same logic as v6/v7)
+# DATA LOADING
 # =============================================================================
 
 def read_long_format(path: str, abundance_type: str = "RPKM") -> pd.DataFrame:
