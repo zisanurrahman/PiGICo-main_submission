@@ -1,40 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SGI Microbiome Machine-Learning Pipeline — v6
+SGI Microbiome Machine-Learning Pipeline
 ==============================================
-Extends v4 with Ridge Regression and XGBoost (in addition to LR and RF).
-Addresses all peer-reviewer comments on the SGI paper revision.
-
   Models: Logistic Regression (LR), Ridge Regression (Ridge),
           Random Forest (RF), XGBoost (XGB)
 
-  1. RPKM vs CPM abundance flag (--abundance_type)
-  2. Sample-size reporting and class-imbalance handling
-  3. Leave-One-Farm/Study-Out (LOFO/LOSO) cross-validation
-  4. Nested cross-validation for model selection (5-outer × 3-inner)
-  5. 80 / 10 / 10 train / val / test holdout split
-  6. Feature-class combination search (all subsets → best AUROC)
-  7. Feature de-redundancy (corr + variance filter)
-  8. SHAP + Permutation Importance + Mutual Information + Ablation
-  9. Confusion matrices for every model × combo
- 10. Automated rebuttal report (REBUTTAL_REPORT.txt)
-
 Usage example:
-  python sgi_ml_pipeline_v5.py \
+  python sgi_ml_pipeline_v6_slim.py \
     --genomics  data/merged_rpkm_cpm_with_metadata_long.tsv \
-    --outdir    results/v5_RPKM \
-    --abundance_type RPKM \
-    --feature_classes AMP,AMR,BGC,CAZyme,VFDB,gutSMASH,SGI \
-    --study_meta data/sample_farm_mapping.tsv \
-    --skip_combo_search
-
-  # CPM (genome-level granularity required):
-  python sgi_ml_pipeline_v5.py \
-    --genomics  data/merged_rpkm_cpm_with_metadata_long.tsv \
-    --outdir    results/v5_CPM \
+    --outdir    results/v6_CPM \
     --abundance_type CPM \
-    --granularity genome_class \
+    --feature_classes AMP,AMR,BGC,CAZyme,VFDB,gutSMASH \
     --study_meta data/sample_farm_mapping.tsv \
     --skip_combo_search
 """
@@ -303,7 +280,7 @@ def _align(X: pd.DataFrame, cols) -> pd.DataFrame:
 
 
 # =============================================================================
-# DATA SPLIT  80 / 10 / 10
+# DATA SPLIT  80 / 10 / 10 (Optional if no hold-out is desired and also for LOSO or Nested CV)
 # =============================================================================
 
 def split_80_10_10(X: pd.DataFrame, y: pd.Series, random_state: int = 42):
@@ -985,11 +962,6 @@ def _predict_proba(model, X: pd.DataFrame) -> np.ndarray:
         return model.predict_proba(X)[:, 1]
     d = model.decision_function(X)
     return 1.0 / (1.0 + np.exp(-d))
-
-
-# =============================================================================
-# REBUTTAL REPORT
-# =============================================================================
 
 # =============================================================================
 # MAIN
